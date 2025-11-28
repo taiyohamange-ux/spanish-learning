@@ -4,7 +4,7 @@ import re
 import google.generativeai as genai
 
 # --- ページ設定 ---
-st.set_page_config(page_title="AI西語辞書", page_icon="🇪🇸")
+st.set_page_config(page_title="Verbo Master", page_icon="🇪🇸")
 
 # --- APIキーの読み込み (Streamlit CloudのSecrets機能を使用) ---
 try:
@@ -110,7 +110,7 @@ def analyze_text_with_gemini(user_text, dictionary_info):
         return f"通信エラー: {e}", ""
 
 # --- アプリの画面構成 (UI) ---
-st.title("🇪🇸 AIスペイン語学習")
+st.title("Verbo Master")
 st.write("辞書データとAIを組み合わせた、あなただけの学習ツールです。")
 
 # テキスト入力エリア
@@ -131,13 +131,13 @@ if st.button("解説スタート", type="primary"):
             st.success("完了しました！")
             
             # タブで表示を切り替え
-            tab1, tab2 = st.tabs(["📖 単語解説", "🇯🇵 日本語訳"])
+            tab1, tab2 = st.tabs(["単語解説", "🇯🇵 日本語訳"])
             
             # タブ1：単語解説
             with tab1:
                 # 辞書データがある場合のみ表示
                 if "（辞書に一致" not in dict_result:
-                    with st.expander("📚 辞書の検索結果を見る", expanded=True):
+                    with st.expander("辞書の検索結果を見る", expanded=True):
                         st.markdown(dict_result)
                     st.divider()
                 
@@ -148,4 +148,5 @@ if st.button("解説スタート", type="primary"):
             with tab2:
                 st.markdown("### 🇯🇵 日本語訳")
                 st.info(translation)
+
 
