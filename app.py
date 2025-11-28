@@ -9,7 +9,7 @@ st.set_page_config(page_title="Verbo Master", page_icon="🇪🇸")
 # APIキーの読み込み
 # Streamlit CloudのSecretsから読み込む設定
 try:
-    api_key = st.secrets["GEMINI_API_KEY"]
+    api_key = st.secrets["AIzaSyDzPxTWoAZtCW5PaTUwkSGwUfEosupJ-hI"]
 except:
     # Secretsが設定されていない場合のエラー表示
     st.error("APIキーが設定されていません。Streamlit CloudのSettings > Secretsに GEMINI_API_KEY を設定してください。")
@@ -130,6 +130,7 @@ if st.button("解説スタート", type="primary"):
             with tab2:
                 st.markdown("### 日本語訳")
                 st.markdown(f"#### {translation}")
+
 
 
 
