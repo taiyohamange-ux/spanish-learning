@@ -1,265 +1,263 @@
-package com.example.ai
+import streamlit as st
+import json
+import re
+import google.generativeai as genai
 
-import android.os.Bundle
-import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.lifecycle.lifecycleScope
-import com.google.ai.client.generativeai.GenerativeModel
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+# --- 設定 ---
+st.set_page_config(page_title="AI西語辞書", page_icon="🇪🇸")
 
-// 辞書データの型定義
-data class DictionaryEntry(val word: String, val meaning: String)
+# APIキーの読み込み
+# Streamlit CloudのSecretsから読み込む設定です
+try:
+    api_key = st.secrets["import streamlit as st
+import json
+import re
+import google.generativeai as genai
 
-class MainActivity : ComponentActivity() {
+# --- 設定 ---
+st.set_page_config(page_title="AI西語辞書", page_icon="🇪🇸")
 
-    // ★★★ ここにAPIキーを入れてください ★★★
-    private val apiKey = "AIzaSyAKlVi8wS6SqEcleH6y9lK5TOmhdj7O9KQ"
+# APIキーの読み込み
+# Streamlit CloudのSecretsから読み込む設定です
+try:
+    api_key = st.secrets["AIzaSyAKlVi8wS6SqEcleH6y9lK5TOmhdj7O9KQ"]
+except:
+    # Secretsが設定されていない場合のエラー表示
+    st.error("APIキーが設定されていません。Streamlit CloudのSettings > Secretsに GEMINI_API_KEY を設定してください。")
+    st.stop()
 
-    // 辞書データを保持するリスト
-    private var dictionaryList: List<DictionaryEntry> = emptyList()
+genai.configure(api_key=api_key)
+model = genai.GenerativeModel('gemini-2.5-flash')
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+# --- 辞書データの読み込み ---
+@st.cache_data
+def load_dictionary():
+    try:
+        with open('spanish_dict.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return []
 
-        // アプリ起動時に辞書を読み込む
-        loadDictionary()
+dictionary_list = load_dictionary()
 
-        setContent {
-            MaterialTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    DictionaryAppScreen()
-                }
-            }
-        }
-    }
+# --- 検索ロジック ---
+def search_dictionary(text):
+    if not dictionary_list:
+        return "（辞書データを読み込めませんでした）"
+    
+    words = re.split(r'[^a-záéíóúñü]+', text.lower())
+    results = []
+    found_set = set()
 
-    // 辞書読み込みロジック
-    private fun loadDictionary() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val inputStream = assets.open("spanish_dict.json")
-                val jsonString = inputStream.bufferedReader().use { it.readText() }
-                val listType = object : TypeToken<List<DictionaryEntry>>() {}.type
-                dictionaryList = Gson().fromJson(jsonString, listType)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    // 辞書検索ロジック
-    fun searchDictionary(text: String): String {
-        if (dictionaryList.isEmpty()) return "（辞書データを準備中...）"
-
-        val words = text.lowercase().split(Regex("[^a-záéíóúñü]+"))
-        val results = StringBuilder()
-        val foundSet = mutableSetOf<String>()
-
-        for (w in words) {
-            if (w.length < 2 || foundSet.contains(w)) continue
-            
-            val entry = dictionaryList.find { it.word.equals(w, ignoreCase = true) }
-            
-            if (entry != null) {
-                var cleanMeaning = entry.meaning
-                    .replace("∥", "\n      ")
-                    .replace("―", "-")
-
-                results.append("・${entry.word} :\n      $cleanMeaning\n\n")
-                foundSet.add(w)
-            }
-        }
+    for w in words:
+        if len(w) < 2 or w in found_set:
+            continue
         
-        if (results.isEmpty()) return "（辞書に一致する単語はありませんでした）"
-        return results.toString()
-    }
-
-    // AI解説ロジック
-    suspend fun analyzeTextWithGemini(userText: String, dictionaryInfo: String): Pair<String, String> {
-        val prompt = """
-            あなたはスペイン語教育のプロフェッショナルです。
-            以下の「参照辞書データ」を最優先で使用し、ユーザーのテキストを解説・翻訳してください。
-
-            ### ユーザーの入力テキスト:
-            $userText
-
-            ### 参照すべき辞書データ (ローカル検索結果):
-            $dictionaryInfo
-
-            ### 指示
-            1. 単語解説:
-               - 文頭から順に単語を解説してください。
-               - 辞書データにある単語は、その意味を必ず使用してください。
-               - 定冠詞 (el, la, los, las) は除外してください。
-            
-            2. 日本語訳:
-               - 文章全体の自然な日本語訳を作成してください。
-
-            ### 重要：出力フォーマット
-            解説と翻訳の間には、区切り文字として「|||」を挿入してください。
-            箇条書きの頭には「・」を使用してください。
-        """.trimIndent()
-
-        return try {
-            val generativeModel = GenerativeModel(
-                modelName = "gemini-2.5-flash", 
-                apiKey = apiKey
-            )
-            val response = generativeModel.generateContent(prompt)
-            val fullText = response.text ?: "回答が得られませんでした"
-            
-            val cleanText = fullText
-                .replace("**", "")
-                .replace("* ", "・")
-                .replace("- ", "・")
-
-            val parts = cleanText.split("|||")
-            if (parts.size >= 2) {
-                Pair(parts[0].trim(), parts[1].trim())
-            } else {
-                Pair(cleanText, "（翻訳データがうまく分割できませんでした）")
-            }
-        } catch (e: Exception) {
-            Pair("通信エラー: ${e.localizedMessage}", "")
-        }
-    }
-}
-
-@Composable
-fun DictionaryAppScreen() {
-    val context = LocalContext.current
+        # 辞書から検索
+        for entry in dictionary_list:
+            if entry['word'].lower() == w:
+                meaning = entry['meaning'].replace("∥", "\n").replace("―", "-")
+                results.append(f"・**{entry['word']}** : {meaning}")
+                found_set.add(w)
+                break 
     
-    var inputText by remember { mutableStateOf("") }
-    var dictionaryResult by remember { mutableStateOf("") }
-    var explanationResult by remember { mutableStateOf("") }
-    var translationResult by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
+    if not results:
+        return "（辞書に一致する単語はありませんでした）"
     
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val tabs = listOf("単語解説", "日本語訳")
+    return "\n\n".join(results)
 
-    val scope = rememberCoroutineScope()
-    val activity = context as? MainActivity
+# --- AI解説ロジック ---
+def analyze_text_with_gemini(user_text, dictionary_info):
+    prompt = f"""
+    あなたはスペイン語教育のプロフェッショナルです。
+    以下の「参照辞書データ」を最優先で使用し、ユーザーのテキストを解説・翻訳してください。
 
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            OutlinedTextField(
-                value = inputText,
-                onValueChange = { inputText = it },
-                label = { Text("スペイン語を入力") },
-                modifier = Modifier.fillMaxWidth().height(100.dp)
-            )
+    ### ユーザーの入力テキスト:
+    {user_text}
 
-            Spacer(modifier = Modifier.height(10.dp))
+    ### 参照すべき辞書データ:
+    {dictionary_info}
 
-            Button(
-                onClick = {
-                    if (inputText.isEmpty()) {
-                        Toast.makeText(context, "文章を入力してください", Toast.LENGTH_SHORT).show()
-                        return@Button
-                    }
-                    isLoading = true
-                    selectedTabIndex = 0 
-                    
-                    scope.launch {
-                        val dictInfo = activity?.searchDictionary(inputText) ?: ""
-                        dictionaryResult = dictInfo 
+    ### 指示
+    1. 単語解説:
+       - 文頭から順に単語を解説してください。
+       - 辞書データにある意味を必ず使用してください。
+       - 定冠詞は除外してください。
+    
+    2. 日本語訳:
+       - 自然な日本語訳を作成してください。
 
-                        val (expl, trans) = activity?.analyzeTextWithGemini(inputText, dictInfo) ?: Pair("エラー", "")
-                        explanationResult = expl
-                        translationResult = trans
-                        
-                        isLoading = false
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading
-            ) {
-                Text(if (isLoading) "解析中..." else "AI解説スタート")
-            }
-        }
+    ### 出力フォーマット
+    解説と翻訳の間には区切り文字「|||」を入れてください。
+    箇条書きは「・」を使用してください。
+    """
+    
+    try:
+        response = model.generate_content(prompt)
+        text = response.text
+        
+        # 整形
+        text = text.replace("**", "").replace("* ", "・").replace("- ", "・")
+        
+        parts = text.split("|||")
+        if len(parts) >= 2:
+            return parts[0].strip(), parts[1].strip()
+        else:
+            return text, "（翻訳の分割に失敗しました）"
+            
+    except Exception as e:
+        return f"エラー: {e}", ""
 
-        if (isLoading) {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        }
+# --- 画面構築 (UI) ---
+st.title("🇪🇸 AIスペイン語学習")
+st.write("辞書データとAIを組み合わせた学習ツールです。")
 
-        TabRow(selectedTabIndex = selectedTabIndex) {
-            tabs.forEachIndexed { index, title ->
-                Tab(
-                    text = { Text(title) },
-                    selected = selectedTabIndex == index,
-                    onClick = { selectedTabIndex = index }
-                )
-            }
-        }
+input_text = st.text_area("スペイン語を入力してください", height=100)
 
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp)
-        ) {
-            if (selectedTabIndex == 0) {
-                if (dictionaryResult.isNotEmpty()) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("【辞書検索結果】", fontWeight = FontWeight.Bold, color = Color(0xFF1565C0))
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(text = dictionaryResult, fontSize = 16.sp)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
+if st.button("解説スタート", type="primary"):
+    if not input_text:
+        st.warning("文章を入力してください")
+    else:
+        with st.spinner('AIが考え中...'):
+            # 1. 辞書検索
+            dict_result = search_dictionary(input_text)
+            
+            # 2. AI解説
+            explanation, translation = analyze_text_with_gemini(input_text, dict_result)
+
+            # --- 結果表示 ---
+            st.success("完了しました！")
+            
+            tab1, tab2 = st.tabs(["単語解説", "日本語訳"])
+            
+            with tab1:
+                if "（辞書に一致" not in dict_result:
+                    st.info("【辞書データ】")
+                    st.markdown(dict_result)
+                    st.divider()
+                st.markdown("### AI解説")
+                st.write(explanation)
                 
-                if (explanationResult.isNotEmpty()) {
-                    Text(text = explanationResult, fontSize = 16.sp)
-                } else if (!isLoading && dictionaryResult.isEmpty()) {
-                    Text("ここに解説が表示されます", color = Color.Gray)
-                }
+            with tab2:
+                st.markdown("### 日本語訳")
+                st.markdown(f"#### {translation}")"]
+except:
+    # Secretsが設定されていない場合のエラー表示
+    st.error("APIキーが設定されていません。Streamlit CloudのSettings > Secretsに GEMINI_API_KEY を設定してください。")
+    st.stop()
 
-            } else {
-                if (translationResult.isNotEmpty()) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("【翻訳】", fontWeight = FontWeight.Bold, color = Color(0xFFE65100))
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(text = translationResult, fontSize = 18.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
-                } else if (!isLoading) {
-                    Text("ここに翻訳が表示されます", color = Color.Gray)
-                }
-            }
-        }
-    }
-}
+genai.configure(api_key=api_key)
+model = genai.GenerativeModel('gemini-1.5-flash')
+
+# --- 辞書データの読み込み ---
+@st.cache_data
+def load_dictionary():
+    try:
+        with open('spanish_dict.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return []
+
+dictionary_list = load_dictionary()
+
+# --- 検索ロジック ---
+def search_dictionary(text):
+    if not dictionary_list:
+        return "（辞書データを読み込めませんでした）"
+    
+    words = re.split(r'[^a-záéíóúñü]+', text.lower())
+    results = []
+    found_set = set()
+
+    for w in words:
+        if len(w) < 2 or w in found_set:
+            continue
+        
+        # 辞書から検索
+        for entry in dictionary_list:
+            if entry['word'].lower() == w:
+                meaning = entry['meaning'].replace("∥", "\n").replace("―", "-")
+                results.append(f"・**{entry['word']}** : {meaning}")
+                found_set.add(w)
+                break 
+    
+    if not results:
+        return "（辞書に一致する単語はありませんでした）"
+    
+    return "\n\n".join(results)
+
+# --- AI解説ロジック ---
+def analyze_text_with_gemini(user_text, dictionary_info):
+    prompt = f"""
+    あなたはスペイン語教育のプロフェッショナルです。
+    以下の「参照辞書データ」を最優先で使用し、ユーザーのテキストを解説・翻訳してください。
+
+    ### ユーザーの入力テキスト:
+    {user_text}
+
+    ### 参照すべき辞書データ:
+    {dictionary_info}
+
+    ### 指示
+    1. 単語解説:
+       - 文頭から順に単語を解説してください。
+       - 辞書データにある意味を必ず使用してください。
+       - 定冠詞は除外してください。
+    
+    2. 日本語訳:
+       - 自然な日本語訳を作成してください。
+
+    ### 出力フォーマット
+    解説と翻訳の間には区切り文字「|||」を入れてください。
+    箇条書きは「・」を使用してください。
+    """
+    
+    try:
+        response = model.generate_content(prompt)
+        text = response.text
+        
+        # 整形
+        text = text.replace("**", "").replace("* ", "・").replace("- ", "・")
+        
+        parts = text.split("|||")
+        if len(parts) >= 2:
+            return parts[0].strip(), parts[1].strip()
+        else:
+            return text, "（翻訳の分割に失敗しました）"
+            
+    except Exception as e:
+        return f"エラー: {e}", ""
+
+# --- 画面構築 (UI) ---
+st.title("🇪🇸 AIスペイン語学習")
+st.write("辞書データとAIを組み合わせた学習ツールです。")
+
+input_text = st.text_area("スペイン語を入力してください", height=100)
+
+if st.button("解説スタート", type="primary"):
+    if not input_text:
+        st.warning("文章を入力してください")
+    else:
+        with st.spinner('AIが考え中...'):
+            # 1. 辞書検索
+            dict_result = search_dictionary(input_text)
+            
+            # 2. AI解説
+            explanation, translation = analyze_text_with_gemini(input_text, dict_result)
+
+            # --- 結果表示 ---
+            st.success("完了しました！")
+            
+            tab1, tab2 = st.tabs(["単語解説", "日本語訳"])
+            
+            with tab1:
+                if "（辞書に一致" not in dict_result:
+                    st.info("【辞書データ】")
+                    st.markdown(dict_result)
+                    st.divider()
+                st.markdown("### AI解説")
+                st.write(explanation)
+                
+            with tab2:
+                st.markdown("### 日本語訳")
+                st.markdown(f"#### {translation}")
