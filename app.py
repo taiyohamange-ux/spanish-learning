@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // 辞書検索ロジック（★ここを見やすく改良しました★）
+    # 辞書検索ロジック（★ここを見やすく改良しました★）
     fun searchDictionary(text: String): String {
         if (dictionaryList.isEmpty()) return "（辞書データを準備中...）"
 
@@ -278,3 +278,4 @@ fun DictionaryAppScreen() {
     }
 
 }
+
