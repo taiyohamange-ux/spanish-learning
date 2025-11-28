@@ -9,7 +9,7 @@ st.set_page_config(page_title="AI西語辞書", page_icon="🇪🇸")
 # APIキーの読み込み
 # Streamlit CloudのSecretsから読み込む設定
 try:
-    api_key = st.secrets["AIzaSyAKlVi8wS6SqEcleH6y9lK5TOmhdj7O9KQ"]
+    api_key = st.secrets["GEMINI_API_KEY"]
 except:
     # Secretsが設定されていない場合のエラー表示
     st.error("APIキーが設定されていません。Streamlit CloudのSettings > Secretsに GEMINI_API_KEY を設定してください。")
@@ -130,3 +130,4 @@ if st.button("解説スタート", type="primary"):
             with tab2:
                 st.markdown("### 日本語訳")
                 st.markdown(f"#### {translation}")
+
