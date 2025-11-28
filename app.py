@@ -95,16 +95,24 @@ def analyze_text_with_gemini(user_text, dictionary_info):
         response = model.generate_content(prompt)
         text = response.text
         
-        # 記号の整形（Markdownの太字などを削除）
-        clean_text = text.replace("**", "").replace("* ", "・").replace("- ", "・")
+        # --- 整形処理 (ここを強化しました) ---
+        # 1. 太字記号を削除
+        text = text.replace("**", "")
+        
+        # 2. 様々な箇条書き記号を「・」に統一
+        text = text.replace("* ", "・").replace("- ", "・")
+        
+        # 3. 【重要】「・」の前に必ず改行を入れる処理
+        # 直前に改行がない「・」を見つけて、改行付きの「\n\n・」に置換します
+        text = re.sub(r"([^\n])・", r"\1\n\n・", text)
         
         # 区切り文字で「解説」と「翻訳」に分割
-        parts = clean_text.split("|||")
+        parts = text.split("|||")
         
         if len(parts) >= 2:
             return parts[0].strip(), parts[1].strip()
         else:
-            return clean_text, "（翻訳データの分割に失敗しましたが、解説に含まれている可能性があります）"
+            return text, "（翻訳データの分割に失敗しましたが、解説に含まれている可能性があります）"
             
     except Exception as e:
         return f"通信エラー: {e}", ""
@@ -137,16 +145,15 @@ if st.button("解説スタート", type="primary"):
             with tab1:
                 # 辞書データがある場合のみ表示
                 if "（辞書に一致" not in dict_result:
-                    with st.expander("辞書の検索結果を見る", expanded=True):
+                    with st.expander("📚 辞書の検索結果を見る", expanded=True):
                         st.markdown(dict_result)
                     st.divider()
                 
                 st.markdown("### 📝 AIによる文法解説")
-                st.write(explanation)
+                # 改行を反映させるため st.markdown を使用
+                st.markdown(explanation)
                 
             # タブ2：日本語訳
             with tab2:
                 st.markdown("### 🇯🇵 日本語訳")
                 st.info(translation)
-
-
