@@ -29,7 +29,7 @@ data class DictionaryEntry(val word: String, val meaning: String)
 
 class MainActivity : ComponentActivity() {
 
-    // ★★★ ここにAPIキーを入れてください ★★★
+    # ★★★ ここにAPIキーを入れてください ★★★
     private val apiKey = "AIzaSyAKlVi8wS6SqEcleH6y9lK5TOmhdj7O9KQ"
 
     // 辞書データを保持するリスト
@@ -276,4 +276,5 @@ fun DictionaryAppScreen() {
             }
         }
     }
+
 }
