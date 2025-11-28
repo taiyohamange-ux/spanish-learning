@@ -81,7 +81,7 @@ class MainActivity : ComponentActivity() {
             val entry = dictionaryList.find { it.word.equals(w, ignoreCase = true) }
 
             if (entry != null) {
-                // ★意味データの中の記号を、見やすい形に変換する処理★
+                # ★意味データの中の記号を、見やすい形に変換する処理★
                 var cleanMeaning = entry.meaning
                     .replace("∥", "\n      ") // 区切り文字「∥」を「改行＋インデント」に変換
                     .replace("―", "-")       // 長いダッシュ「―」をハイフン「-」に変換
@@ -278,4 +278,5 @@ fun DictionaryAppScreen() {
     }
 
 }
+
 
