@@ -29,7 +29,7 @@ data class DictionaryEntry(val word: String, val meaning: String)
 
 class MainActivity : ComponentActivity() {
 
-    # ★★★ ここにAPIキーを入れてください ★★★
+    // ★★★ ここにAPIキーを入れてください ★★★
     private val apiKey = "AIzaSyAKlVi8wS6SqEcleH6y9lK5TOmhdj7O9KQ"
 
     // 辞書データを保持するリスト
@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    # 辞書検索ロジック（★ここを見やすく改良しました★）
+    // 辞書検索ロジック
     fun searchDictionary(text: String): String {
         if (dictionaryList.isEmpty()) return "（辞書データを準備中...）"
 
@@ -77,21 +77,19 @@ class MainActivity : ComponentActivity() {
 
         for (w in words) {
             if (w.length < 2 || foundSet.contains(w)) continue
-
+            
             val entry = dictionaryList.find { it.word.equals(w, ignoreCase = true) }
-
+            
             if (entry != null) {
-                # ★意味データの中の記号を、見やすい形に変換する処理★
                 var cleanMeaning = entry.meaning
-                    .replace("∥", "\n      ") // 区切り文字「∥」を「改行＋インデント」に変換
-                    .replace("―", "-")       // 長いダッシュ「―」をハイフン「-」に変換
+                    .replace("∥", "\n      ")
+                    .replace("―", "-")
 
-                // 単語と意味を見やすく整形して追加
                 results.append("・${entry.word} :\n      $cleanMeaning\n\n")
                 foundSet.add(w)
             }
         }
-
+        
         if (results.isEmpty()) return "（辞書に一致する単語はありませんでした）"
         return results.toString()
     }
@@ -120,28 +118,21 @@ class MainActivity : ComponentActivity() {
             ### 重要：出力フォーマット
             解説と翻訳の間には、区切り文字として「|||」を挿入してください。
             箇条書きの頭には「・」を使用してください。
-            
-            (出力例)
-            【単語解説】
-            ・word (不定詞: ...): 意味
-            ...
-            |||
-            【日本語訳】
-            ここに翻訳文...
         """.trimIndent()
 
         return try {
             val generativeModel = GenerativeModel(
-                modelName = "gemini-2.5-flash",
+                modelName = "gemini-2.5-flash", 
                 apiKey = apiKey
             )
             val response = generativeModel.generateContent(prompt)
             val fullText = response.text ?: "回答が得られませんでした"
+            
+            val cleanText = fullText
+                .replace("**", "")
+                .replace("* ", "・")
+                .replace("- ", "・")
 
-            // アスタリスク削除
-            val cleanText = fullText.replace("**", "")
-
-            // 区切り文字で分割
             val parts = cleanText.split("|||")
             if (parts.size >= 2) {
                 Pair(parts[0].trim(), parts[1].trim())
@@ -157,13 +148,13 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun DictionaryAppScreen() {
     val context = LocalContext.current
-
+    
     var inputText by remember { mutableStateOf("") }
     var dictionaryResult by remember { mutableStateOf("") }
     var explanationResult by remember { mutableStateOf("") }
     var translationResult by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
-
+    
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("単語解説", "日本語訳")
 
@@ -173,7 +164,6 @@ fun DictionaryAppScreen() {
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        // 上部エリア
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
@@ -193,16 +183,16 @@ fun DictionaryAppScreen() {
                         return@Button
                     }
                     isLoading = true
-                    selectedTabIndex = 0
-
+                    selectedTabIndex = 0 
+                    
                     scope.launch {
                         val dictInfo = activity?.searchDictionary(inputText) ?: ""
-                        dictionaryResult = dictInfo
+                        dictionaryResult = dictInfo 
 
                         val (expl, trans) = activity?.analyzeTextWithGemini(inputText, dictInfo) ?: Pair("エラー", "")
                         explanationResult = expl
                         translationResult = trans
-
+                        
                         isLoading = false
                     }
                 },
@@ -217,7 +207,6 @@ fun DictionaryAppScreen() {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
 
-        // タブ
         TabRow(selectedTabIndex = selectedTabIndex) {
             tabs.forEachIndexed { index, title ->
                 Tab(
@@ -228,7 +217,6 @@ fun DictionaryAppScreen() {
             }
         }
 
-        // 下部エリア
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -236,7 +224,6 @@ fun DictionaryAppScreen() {
                 .padding(16.dp)
         ) {
             if (selectedTabIndex == 0) {
-                // --- タブ1：単語解説 ---
                 if (dictionaryResult.isNotEmpty()) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
@@ -250,7 +237,7 @@ fun DictionaryAppScreen() {
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
-
+                
                 if (explanationResult.isNotEmpty()) {
                     Text(text = explanationResult, fontSize = 16.sp)
                 } else if (!isLoading && dictionaryResult.isEmpty()) {
@@ -258,7 +245,6 @@ fun DictionaryAppScreen() {
                 }
 
             } else {
-                // --- タブ2：日本語訳 ---
                 if (translationResult.isNotEmpty()) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
@@ -276,7 +262,4 @@ fun DictionaryAppScreen() {
             }
         }
     }
-
 }
-
-
