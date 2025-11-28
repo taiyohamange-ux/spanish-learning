@@ -15,7 +15,7 @@ except:
 
 # Geminiの設定 (正しいモデル名に戻しました)
 genai.configure(api_key=api_key)
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-2.5-flash')
 
 # --- 辞書データの読み込み ---
 @st.cache_data
@@ -145,3 +145,4 @@ if st.button("解説スタート", type="primary"):
             with tab2:
                 st.markdown("### 🇯🇵 日本語訳")
                 st.info(translation)
+
